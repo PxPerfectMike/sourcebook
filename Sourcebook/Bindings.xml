@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="SOURCEBOOK_LOOKUP" header="SOURCEBOOK" category="ADDONS">
+		Sourcebook_LookupHovered()
+	</Binding>
+</Bindings>

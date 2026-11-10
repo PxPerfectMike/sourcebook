@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: Sourcebook (loot data)
+## Notes: Drop, vendor and spawn data for Sourcebook, from the VMaNGOS world database.
+## Author: PxPerfectMike
+## Version: 0.1.0
+## X-License: GPL-2.0
+## IconTexture: Interface\Icons\INV_Misc_Book_09
+
+Loot.lua

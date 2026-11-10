@@ -1,0 +1,7 @@
+.pylibs/
+tools/.cache/
+__pycache__/
+*.pyc
+dist/
+.superpowers/
+tools/book/out/

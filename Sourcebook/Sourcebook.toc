@@ -1,0 +1,27 @@
+## Interface: 16001
+## Title: Sourcebook
+## Notes: Where every reagent, recipe and piece of gear comes from: who drops it, where to gather it, who sells it, and what it crafts.
+## Author: PxPerfectMike
+## Version: 0.1.0
+## Dependencies: Sourcebook_Loot
+## OptionalDeps: TomTom
+## SavedVariables: SourcebookDB
+## X-License: MIT
+## IconTexture: Interface\Icons\INV_Misc_Book_09
+
+Data\Recipes.lua
+Codec.lua
+Craft.lua
+Sources.lua
+Learned.lua
+Format.lua
+Library.lua
+Nav.lua
+Recorder.lua
+Waypoint.lua
+Tooltip.lua
+Panel.lua
+BookArt.lua
+Book.lua
+BookPages.lua
+Core.lua
