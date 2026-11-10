@@ -4,6 +4,7 @@
 ## Author: PxPerfectMike
 ## Version: 0.1.0
 ## X-License: GPL-2.0
+## X-Website: https://github.com/PxPerfectMike/sourcebook
 ## IconTexture: Interface\Icons\INV_Misc_Book_09
 
 Loot.lua

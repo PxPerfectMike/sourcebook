@@ -372,6 +372,15 @@ local function ItemIcon(id)
 	return (C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)) or 134400
 end
 
+-- A recipe shows what it makes; tradeskill spells themselves only have a generic icon.
+local function RecipeIcon(r)
+	if r and r.item and r.item > 0 then
+		return (C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(r.item)) or 134400
+	end
+	local good, icon = pcall(C_Spell.GetSpellTexture, r and r.spell)
+	return good and icon or 134400
+end
+
 local function SpellIcon(id)
 	local good, icon = pcall(C_Spell.GetSpellTexture, id)
 	return good and icon or 134400
@@ -719,7 +728,7 @@ local function ItemElements(id)
 		end, true)
 		add(f.rowH, function(page)
 			Row(page, { text = Format.names.spell(r.spell), right = Format.names.profession(r.skill) .. " " .. r.orange,
-				icon = SpellIcon(r.spell), indent = 6, color = ns.Knows(r.spell) and { 0.08, 0.40, 0.06 } or nil,
+				icon = RecipeIcon(r), indent = 6, color = ns.Knows(r.spell) and { 0.08, 0.40, 0.06 } or nil,
 				onClick = function()
 					Pages.GoRecipe(r.spell)
 				end })
@@ -734,7 +743,7 @@ local function ItemElements(id)
 			for _, r in ipairs(list) do
 				add(f.rowH, function(page)
 					Row(page, { text = Format.names.spell(r.spell), right = Format.names.profession(r.skill) .. " " .. r.orange,
-						icon = SpellIcon(r.spell), indent = 6, onClick = function()
+						icon = RecipeIcon(r), indent = 6, onClick = function()
 							Pages.GoRecipe(r.spell)
 						end })
 				end)
@@ -882,7 +891,7 @@ local function RecipeSpread(state)
 				if Remaining(right) < f.rowH + FooterHeight() then
 					break
 				end
-				Row(right, { text = Format.names.spell(step.spell), right = step.crafts .. "x", icon = SpellIcon(step.spell), indent = 6,
+				Row(right, { text = Format.names.spell(step.spell), right = step.crafts .. "x", icon = RecipeIcon(ns.Codec.Recipe(step.spell)), indent = 6,
 					onClick = step.spell ~= r.spell and function()
 						Pages.GoRecipe(step.spell)
 					end or nil })

@@ -272,15 +272,20 @@ local function Build()
 	spreadTex:SetAllPoints()
 	spreadTex:SetTexCoord(0, Art.spread.w / Art.spread.tw, 0, Art.spread.h / Art.spread.th)
 
+	-- Light spilling out of the uncovered page: an even warm wash over the page (a radial
+	-- glow read as a bright blotch on the parchment).
 	pageGlow = root:CreateTexture(nil, "OVERLAY")
-	pageGlow:SetTexture(MEDIA .. "glow.png")
+	pageGlow:SetColorTexture(1, 1, 1, 1)
 	pageGlow:SetBlendMode("ADD")
-	pageGlow:SetVertexColor(1, 0.8, 0.45)
+	pageGlow:SetVertexColor(1, 0.78, 0.42)
 	pageGlow:SetAlpha(0)
 
-	coverShadow = root:CreateTexture(nil, "OVERLAY")
-	coverShadow:SetTexture(MEDIA .. "glow.png")
-	coverShadow:SetVertexColor(0, 0, 0)
+	-- The standing cover's shadow: a band falling from the spine, darkest at the spine.
+	coverShadow = root:CreateTexture(nil, "OVERLAY", nil, 1)
+	coverShadow:SetColorTexture(1, 1, 1, 1)
+	if CreateColor then
+		pcall(coverShadow.SetGradient, coverShadow, "HORIZONTAL", CreateColor(0, 0, 0, 1), CreateColor(0, 0, 0, 0))
+	end
 	coverShadow:SetAlpha(0)
 
 	for i = 1, 2 do
@@ -584,44 +589,55 @@ function Book.Turn(dir, build)
 	Tween(SHEET_FADE, function(p)
 		SetSheet(dir > 0 and 0 or 1, p)
 	end)
-	-- 2. Turn. The new page underneath writes itself in once it is uncovered.
-	local wroteUnder = false
+	-- 2. Turn. The new page underneath writes itself in once it is uncovered; as the sheet settles
+	-- onto the other side its printed ink dissolves into the new page's (the last fifth of the
+	-- turn is the page settling flat, so waiting for it to finish would show the stand-in text).
+	local wroteUnder, landed = false, false
+	local SETTLE = 0.8
+	local function Land()
+		landed = true
+		old[landing]:Hide()
+		WriteIn(new[landing], WRITE, 0)
+		local lx = landing == "left" and (Art.left[1] + Art.left[3]) / 2 or (Art.right[1] + Art.right[3]) / 2
+		Book.Burst(lx * W, -H * 0.5, {
+			count = 16, kind = "spark", speed = 30, spreadX = W * 0.36, spreadY = H * 0.7, life = 1.0, size = 10,
+			alpha = 0.6, jitter = 0.25,
+		})
+	end
 	Tween(TURN, function(p)
-		local e = p
-		local pos = dir > 0 and e or 1 - e
-		SetSheet(pos, 1)
+		local pos = dir > 0 and p or 1 - p
+		local alpha = 1
+		if p > SETTLE then
+			if not landed then
+				Land()
+			end
+			alpha = 1 - EaseOut((p - SETTLE) / (1 - SETTLE))
+		end
+		SetSheet(pos, alpha)
 		if not wroteUnder and p > 0.14 then
 			wroteUnder = true
 			WriteIn(new[lifting], WRITE, 0)
 		end
-		if math.random() < 0.45 then
+		if p < SETTLE and math.random() < 0.45 then
 			local x = SheetEdgeX(pos)
 			Book.Burst(x, -H * (0.15 + math.random() * 0.7), {
 				count = 1, kind = "spark", speed = 25, vy = 12, life = 0.9, size = 12, spread = 8,
 			})
 		end
 	end, function()
-		-- 3. Landed: the old page under it goes, the sheet's ink melts into the new page's.
-		old[landing]:Hide()
-		WriteIn(new[landing], WRITE, 0.02)
-		Tween(SHEET_FADE * 1.6, function(p)
-			SetSheet(dir > 0 and 1 or 0, 1 - p)
-		end, function()
-			HideSheet()
-			shown = 3 - shown
-			busy = false
-			Book.OnSettled()
-			if queued then
-				local q = queued
-				queued = nil
-				Book.Turn(q.dir, q.build)
-			end
-		end)
-		local lx = landing == "left" and (Art.left[1] + Art.left[3]) / 2 or (Art.right[1] + Art.right[3]) / 2
-		Book.Burst(lx * W, -H * 0.5, {
-			count = 16, kind = "spark", speed = 30, spreadX = W * 0.36, spreadY = H * 0.7, life = 1.0, size = 10,
-			alpha = 0.6, jitter = 0.25,
-		})
+		-- 3. Settled.
+		if not landed then
+			Land()
+		end
+		HideSheet()
+		shown = 3 - shown
+		busy = false
+		Book.OnSettled()
+		if queued then
+			local q = queued
+			queued = nil
+			Book.Turn(q.dir, q.build)
+		end
 	end, SHEET_FADE * 0.6)
 end
 
@@ -773,8 +789,9 @@ local function SetCover(gamma, alpha)
 	end
 	-- The board's shadow falls on the right page while it stands up.
 	local sh = math.sin(gamma)
-	Place(coverShadow, { Art.right[1] - 0.02, Art.right[2] - 0.05, Art.right[1] + 0.2 + 0.25 * math.cos(math.min(gamma, math.pi / 2)), Art.right[4] + 0.05 })
-	coverShadow:SetAlpha(0.45 * sh * alpha)
+	local reach = (Art.right[3] - Art.right[1]) * 0.6 * math.max(0.05, sh) ^ 0.8
+	Place(coverShadow, { Art.right[1], Art.right[2], Art.right[1] + reach, Art.right[4] })
+	coverShadow:SetAlpha(0.5 * sh * alpha)
 end
 
 local function HideCover()
@@ -865,19 +882,22 @@ function Book.Open(build, ready)
 	if PlaySound and SOUNDKIT then
 		PlaySound(SOUNDKIT.IG_SPELLBOOK_OPEN or 829)
 	end
+	-- The first time, the cover and page textures are still loading: wait for them unseen.
+	local d = Book.warmed and 0 or 0.35
+	Book.warmed = true
 	-- 1. The closed book settles into view.
 	Tween(OPEN_DROP, function(p)
 		local e = EaseOut(p)
 		backdrop:SetAlpha(e)
 		root:SetAlpha(e)
 		root:SetScale(1.06 - 0.06 * e)
-	end)
-	Glint(0.7, OPEN_DROP * 0.6)
+	end, nil, d)
+	Glint(0.7, d + OPEN_DROP * 0.6)
 	-- 2. Runes flare, then the cover swings open and the book slides to the middle.
 	Tween(0.35, function(p)
 		runeLevel = 0.6 + 0.6 * math.sin(math.pi * p)
 		SetCover(0, 1)
-	end, nil, OPEN_DROP)
+	end, nil, d + OPEN_DROP)
 	local burstDone = false
 	Tween(OPEN_SWING, function(p)
 		local e = Ease(p)
@@ -886,8 +906,8 @@ function Book.Open(build, ready)
 		root:ClearAllPoints()
 		root:SetPoint("CENTER", startShift * (1 - e), -UIParent:GetHeight() * 0.01)
 		-- Light spills out of the pages as they are uncovered.
-		Place(pageGlow, { Art.right[1] - 0.05, Art.right[2] - 0.1, Art.right[3] + 0.05, Art.right[4] + 0.1 })
-		pageGlow:SetAlpha(0.55 * math.sin(math.pi * math.min(1, p * 1.3)))
+		Place(pageGlow, Art.right)
+		pageGlow:SetAlpha(0.16 * math.max(0, math.sin(math.pi * math.min(1, p * 1.3))))
 		if not burstDone and p > 0.35 then
 			burstDone = true
 			Book.Burst((Art.right[1] + Art.right[3]) / 2 * W, -H * 0.5, {
@@ -922,7 +942,7 @@ function Book.Open(build, ready)
 			queued = nil
 			Book.Turn(q.dir, q.build)
 		end
-	end, OPEN_DROP + 0.25)
+	end, d + OPEN_DROP + 0.25)
 	return true
 end
 

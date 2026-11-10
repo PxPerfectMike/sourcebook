@@ -52,6 +52,10 @@ Sourcebook remembers what you loot from what. Creatures and zones that are new i
 - Two folders install: **Sourcebook** (the addon) and **Sourcebook_Loot** (the data). Keep both enabled.
 - The book's art uses about 160 MB of video memory while it's open.
 
+## Source
+
+Open source: https://github.com/PxPerfectMike/sourcebook
+
 ## License
 
 Sourcebook is MIT licensed. The Sourcebook_Loot data is GPL-2.0, because it is derived from the VMaNGOS world database (https://github.com/vmangos/core).

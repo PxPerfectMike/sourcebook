@@ -139,6 +139,9 @@ function CreateFont(name)
 	return f
 end
 function PlaySound() end
+function CreateColor(r, g, b, a)
+	return { r = r, g = g, b = b, a = a }
+end
 inCombat = false
 function InCombatLockdown()
 	return inCombat
