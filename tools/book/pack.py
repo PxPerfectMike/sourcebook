@@ -151,6 +151,18 @@ def fx_textures():
 	xx = np.mgrid[0:h, 0:w][1]
 	band = np.exp(-((xx - w / 2) / (w / 7)) ** 2)
 	sizes["sweep.png"] = save(Image.fromarray(np.dstack([np.full((h, w, 3), 255), band * 255]).astype(np.uint8), "RGBA"), "sweep.png")
+	# The standing cover's shadow: darkest along the hinge (u = 0), fading toward the far edge,
+	# feathered top and bottom. Drawn as a projected quad, so u runs hinge -> outer edge.
+	n = 256
+	yy, xx = np.mgrid[0:n, 0:n] / (n - 1)
+	along = (1 - xx) ** 1.4
+	feather_v = np.clip(np.minimum(yy, 1 - yy) / 0.1, 0, 1)
+	feather_v = feather_v * feather_v * (3 - 2 * feather_v)
+	feather_u = np.clip((1 - xx) / 0.15, 0, 1)
+	a = along * feather_v * feather_u
+	sizes["shadow_soft.png"] = save(Image.fromarray(np.dstack([np.zeros((n, n, 3)), a * 255]).astype(np.uint8), "RGBA"), "shadow_soft.png")
+	# A plain mask (white, opaque) for clipping to a page.
+	sizes["mask.png"] = save(Image.fromarray(np.full((16, 16, 4), 255, dtype=np.uint8), "RGBA"), "mask.png")
 	# Ink rule (a hand-drawn line) for the search box and dividers.
 	w, h = 512, 16
 	img = Image.new("L", (w * 2, h * 2), 0)

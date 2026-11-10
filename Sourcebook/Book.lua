@@ -280,13 +280,17 @@ local function Build()
 	pageGlow:SetVertexColor(1, 0.78, 0.42)
 	pageGlow:SetAlpha(0)
 
-	-- The standing cover's shadow: a band falling from the spine, darkest at the spine.
+	-- The standing cover's shadow: its silhouette projected onto the right page along the
+	-- render's key light, soft and darkest at the hinge, clipped to the parchment.
 	coverShadow = root:CreateTexture(nil, "OVERLAY", nil, 1)
-	coverShadow:SetColorTexture(1, 1, 1, 1)
-	if CreateColor then
-		pcall(coverShadow.SetGradient, coverShadow, "HORIZONTAL", CreateColor(0, 0, 0, 1), CreateColor(0, 0, 0, 0))
-	end
+	coverShadow:SetTexture(MEDIA .. "shadow_soft.png")
 	coverShadow:SetAlpha(0)
+	pcall(function()
+		local mask = root:CreateMaskTexture()
+		mask:SetTexture(MEDIA .. "mask.png", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+		Place(mask, Art.right)
+		coverShadow:AddMaskTexture(mask)
+	end)
 
 	for i = 1, 2 do
 		local b = { pool = {} }
@@ -692,6 +696,8 @@ end
 local CAM_H = 3.6391 -- camera height over the table, in units where FRAME_W (2.62) is the image width
 local FRAME_W = 2.62
 local HINGE_Z = 0.097
+-- The render's key light (tools/book/render_book.py), in the same world units.
+local LIGHT_X, LIGHT_Y, LIGHT_Z = -2.2, 1.9, 4.2
 
 local function Project(xw, yw, zw)
 	-- xw, yw in world units from the spine center; returns root coords.
@@ -787,11 +793,32 @@ local function SetCover(gamma, alpha)
 	else
 		glintTex:Hide()
 	end
-	-- The board's shadow falls on the right page while it stands up.
-	local sh = math.sin(gamma)
-	local reach = (Art.right[3] - Art.right[1]) * 0.6 * math.max(0.05, sh) ^ 0.8
-	Place(coverShadow, { Art.right[1], Art.right[2], Art.right[1] + reach, Art.right[4] })
-	coverShadow:SetAlpha(0.5 * sh * alpha)
+	-- The board's shadow: each outer corner projected onto the page along the key light.
+	local function OnPage(xw, yw, zw)
+		local t = (LIGHT_Z - HINGE_Z) / (LIGHT_Z - zw)
+		return Project(LIGHT_X + (xw - LIGHT_X) * t, LIGHT_Y + (yw - LIGHT_Y) * t, HINGE_Z)
+	end
+	local ox, oz = boardW * math.cos(gamma), HINGE_Z + boardW * math.sin(gamma)
+	local hx0, hy0 = Project(0, yTop, HINGE_Z) -- hinge, top
+	local hx1, hy1 = Project(0, yBot, HINGE_Z) -- hinge, bottom
+	local sx0, sy0 = OnPage(ox, yTop, oz) -- shadow of the outer edge, top
+	local sx1, sy1 = OnPage(ox, yBot, oz) -- and bottom
+	local minX, maxX = math.min(hx0, hx1, sx0, sx1), math.max(hx0, hx1, sx0, sx1)
+	local minY, maxY = math.min(hy0, hy1, sy0, sy1), math.max(hy0, hy1, sy0, sy1)
+	if maxX - minX < 1 or gamma <= 0.001 or gamma >= math.pi - 0.001 then
+		coverShadow:SetAlpha(0)
+		return
+	end
+	coverShadow:ClearAllPoints()
+	coverShadow:SetPoint("TOPLEFT", root, "TOPLEFT", minX, maxY)
+	coverShadow:SetSize(maxX - minX, maxY - minY)
+	-- Texture u runs hinge -> outer edge; vertices 1 UL, 2 LL, 3 UR, 4 LR.
+	coverShadow:SetVertexOffset(1, hx0 - minX, hy0 - maxY)
+	coverShadow:SetVertexOffset(2, hx1 - minX, hy1 - minY)
+	coverShadow:SetVertexOffset(3, sx0 - maxX, sy0 - maxY)
+	coverShadow:SetVertexOffset(4, sx1 - maxX, sy1 - minY)
+	-- Fainter while the cover is low (it shades little) and as it leans past upright.
+	coverShadow:SetAlpha(0.55 * math.sin(gamma) * alpha)
 end
 
 local function HideCover()

@@ -97,6 +97,25 @@ def simulate_open(out_path, W=1100):
 			canvas.alpha_composite(half, (int(gx * W), 0))
 		else:
 			canvas.alpha_composite(spread_small)
+		# The cover's shadow (Book.lua SetCover): outer corners projected along the key light,
+		# clipped to the right page.
+		if 0.001 < g < math.pi - 0.001:
+			LX, LY, LZ = -2.2, 1.9, 4.2
+			def on_page(xw, yw, zw):
+				t = (LZ - HINGE_Z) / (LZ - zw)
+				return project(LX + (xw - LX) * t, LY + (yw - LY) * t, HINGE_Z)
+			ox, oz = board_w * math.cos(g), HINGE_Z + board_w * math.sin(g)
+			quad = [project(0, y_top, HINGE_Z), on_page(ox, y_top, oz), on_page(ox, y_bot, oz), project(0, y_bot, HINGE_Z)]
+			soft = Image.open(os.path.join(MEDIA, "shadow_soft.png")).convert("RGBA")
+			layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+			sw = soft.width - 1
+			warp_onto(layer, soft, [(0, 0), (sw, 0), (sw, sw), (0, sw)], quad)
+			a = np.asarray(layer).astype(np.float32)
+			a[..., 3] *= 0.55 * math.sin(g)
+			clip = np.zeros(a.shape[:2])
+			clip[int(R[1] * H):int(R[3] * H), int(R[0] * W):int(R[2] * W)] = 1
+			a[..., 3] *= clip
+			canvas.alpha_composite(Image.fromarray(a.astype(np.uint8), "RGBA"))
 		front = g < math.pi / 2
 		light = (1 - 0.28 * math.sin(g)) if front else (0.78 + 0.22 * -math.cos(g))
 		n = 16
